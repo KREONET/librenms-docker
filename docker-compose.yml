@@ -1,0 +1,188 @@
+name: librenms
+
+services:
+  db:
+    image: mariadb:10.5
+    container_name: librenms_db
+    command:
+      - "mysqld"
+      - "--innodb-file-per-table=1"
+      - "--lower-case-table-names=0"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    # ports:
+    #   - 3306:3306/tcp
+    volumes:
+      - db:/var/lib/mysql
+    environment:
+      TZ: "${TZ}"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    restart: always
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: librenms_redis
+    environment:
+      TZ: "${TZ}"
+    volumes:
+      - redis:/data
+    restart: always
+
+  msmtpd:
+    image: crazymax/msmtpd:latest
+    container_name: librenms_msmtpd
+    env_file:
+      - ./msmtpd.env
+    restart: always
+
+  librenms:
+    image: librenms/librenms:25.5.0
+    container_name: librenms
+    hostname: librenms
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    ports:
+      - 80:8000/tcp
+    depends_on:
+      - db
+      - redis
+      - msmtpd
+    volumes:
+      - libre:/data
+      - ./patch/common.php:/opt/librenms/includes/common.php
+      - ./patch/NetSnmpQuery.php:/opt/librenms/LibreNMS/Data/Source/NetSnmpQuery.php
+    env_file:
+      - ./librenms.env
+    environment:
+      TZ: "${TZ}"
+      PUID: "${PUID}"
+      PGID: "${PGID}"
+      DB_HOST: "db"
+      DB_NAME: "${MYSQL_DATABASE}"
+      DB_USER: "${MYSQL_USER}"
+      DB_PASSWORD: "${MYSQL_PASSWORD}"
+      DB_TIMEOUT: "60"
+    restart: always
+
+  dispatcher:
+    image: librenms/librenms:25.5.0
+    container_name: librenms_dispatcher
+    hostname: librenms-dispatcher
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - librenms
+      - redis
+    volumes:
+      - libre:/data
+      - ./patch/common.php:/opt/librenms/includes/common.php
+      - ./patch/NetSnmpQuery.php:/opt/librenms/LibreNMS/Data/Source/NetSnmpQuery.php
+    env_file:
+      - ./librenms.env
+    environment:
+      TZ: "${TZ}"
+      PUID: "${PUID}"
+      PGID: "${PGID}"
+      DB_HOST: "db"
+      DB_NAME: "${MYSQL_DATABASE}"
+      DB_USER: "${MYSQL_USER}"
+      DB_PASSWORD: "${MYSQL_PASSWORD}"
+      DB_TIMEOUT: "60"
+      DISPATCHER_NODE_ID: "dispatcher1"
+      SIDECAR_DISPATCHER: "1"
+    restart: always
+
+  syslogng:
+    image: librenms/librenms:25.5.0
+    container_name: librenms_syslogng
+    hostname: librenms-syslogng
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - librenms
+      - redis
+    ports:
+      - 514:514/udp
+      - 514:514/tcp
+    volumes:
+      - libre:/data
+    env_file:
+      - ./librenms.env
+    environment:
+      TZ: "${TZ}"
+      PUID: "${PUID}"
+      PGID: "${PGID}"
+      DB_HOST: "db"
+      DB_NAME: "${MYSQL_DATABASE}"
+      DB_USER: "${MYSQL_USER}"
+      DB_PASSWORD: "${MYSQL_PASSWORD}"
+      DB_TIMEOUT: "60"
+      SIDECAR_SYSLOGNG: "1"
+    restart: always
+
+  snmptrapd:
+    image: librenms/librenms:25.5.0
+    container_name: librenms_snmptrapd
+    hostname: librenms-snmptrapd
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - librenms
+      - redis
+    ports:
+      - 162:162/udp
+      - 162:162/tcp
+    volumes:
+      - libre:/data
+    env_file:
+      - ./librenms.env
+    environment:
+      TZ: "${TZ}"
+      PUID: "${PUID}"
+      PGID: "${PGID}"
+      DB_HOST: "db"
+      DB_NAME: "${MYSQL_DATABASE}"
+      DB_USER: "${MYSQL_USER}"
+      DB_PASSWORD: "${MYSQL_PASSWORD}"
+      DB_TIMEOUT: "60"
+      SIDECAR_SNMPTRAPD: "1"
+    restart: always
+
+  # oxidized:
+  #   image: oxidized/oxidized:latest
+  #   container_name: oxidized
+  #   ports:
+  #     - 8888:8888/tcp
+  #   environment:
+  #     CONFIG_RELOAD_INTERVAL: 600
+  #   volumes:
+  #     - oxi_cfg:/home/oxidized/.config/oxidized/
+  #     - oxi_ssh:/home/oxidized/.ssh/
+  #   restart: always
+
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin:latest
+  #   container_name: librenms_myadmin
+  #   ports:
+  #     - 8080:80/tcp
+  #   depends_on:
+  #     - db
+  #   environment:
+  #     TZ: "${TZ}"
+  #     PMA_HOST: "db"
+  #     PMA_USER: "librenms"
+  #     PMA_PASSWORD: "${MYSQL_PASSWORD}"
+
+volumes:
+  db:
+  redis:
+  libre:
+  # oxi_cfg:
+  # oxi_ssh:
