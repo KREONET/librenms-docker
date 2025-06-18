@@ -9,6 +9,22 @@ vi msmtpd.env
 docker compose up -d
 ```
 
+호스트에서 다음을 `~/.zshrc`에 넣어두면 편하게 작업할 수 있다.
+
+```bash
+alias lnms='docker exec -it librenms lnms'
+```
+
+웹에서도 장비를 등록할 수 있지만, CLI를 이용하면 여러 장비를 손쉽게 등록할 수 있다.
+
+```bash
+lnms device:add --help
+C=my_snmp_community
+lnms device:add -c $C -d "Dispaly Name 1" ROUTER_IP_1
+lnms device:add -c $C -d "Dispaly Name 2" ROUTER_IP_2
+...
+```
+
 ## 유의 사항
 
 ### 암호 변경
@@ -78,7 +94,7 @@ volumes:
 
 ### DB, phpMyAdmin 개방
 
-NocoDB 연동이나 디버깅을 위하여 DB나 phpMyAdmin 포트를 개방할 수 있다. 다만 적절한 보안정책을 수립하여 외부에 노출되지 않아야 한다.
+NocoDB 연동이나 디버깅을 위하여 DB나 phpMyAdmin 포트를 개방할 수 있다. 다만 적절한 보안정책을 수립하여 외부에 노출되지 않아야 한다. 데비안/우분투의 경우 [ufw-docker](https://github.com/chaifeng/ufw-docker)를 적용해 볼 수 있다.
 
 
 ```yaml
